@@ -1,0 +1,5 @@
+kubeconfig_path: "{{ playbook_dir }}/../kubeconfig"
+namespace: web
+app_name: hello-web
+image: ghcr.io/nginxdemos/hello:plain-text
+host: "{{ lookup('env','DNS_HOST') | default('app.cloudzee.local', true) }}"
