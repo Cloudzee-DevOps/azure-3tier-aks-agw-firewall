@@ -1,0 +1,56 @@
+---
+- name: Deploy demo app to AKS via AGIC
+hosts: local
+vars_files:
+    - ../group_vars/all.yml
+tasks:
+    - name: Ensure collections present (idempotent)
+    community.general.ansible_galaxy_install:
+        type: collection
+        name: kubernetes.core
+    changed_when: false
+    
+    
+    - name: Set KUBECONFIG for kubernetes.core
+    ansible.builtin.set_env:
+        KUBECONFIG: "{{ kubeconfig_path }}"
+    
+    
+    - name: Create namespace
+    kubernetes.core.k8s:
+        state: present
+        src: ../k8s/namespace.yaml
+    
+    
+    - name: Deploy
+    kubernetes.core.k8s:
+        state: present
+        src: ../k8s/deployment.yaml
+    
+    
+    - name: Service
+    kubernetes.core.k8s:
+        state: present
+        src: ../k8s/service.yaml
+    
+    
+    - name: Ingress
+    kubernetes.core.k8s:
+        state: present
+        src: ../k8s/ingress.yaml
+    
+    
+    - name: Wait for endpoints
+    kubernetes.core.k8s_info:
+        kind: Endpoints
+        namespace: "{{ namespace }}"
+        name: "{{ app_name }}"
+    register: ep
+    until: ep.resources | length > 0
+    retries: 20
+    delay: 10
+    
+    
+    - name: Show access hint
+    ansible.builtin.debug:
+        msg: "Point DNS A record {{ host }} to Firewall Public IP: {{ lookup('file', '../../terraform/terraform.tfstate') | default('get from terraform output', true) }}"
