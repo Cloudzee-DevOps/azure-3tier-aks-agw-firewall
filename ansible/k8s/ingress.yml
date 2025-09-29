@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+    name: hello-web
+    namespace: web
+    annotations:
+        kubernetes.io/ingress.class: azure/application-gateway
+spec:
+    rules:
+        - host: app.cloudzee.local
+        http:
+            paths:
+                - path: /
+                pathType: Prefix
+                backend:
+                    service:
+                        name: hello-web
+                        port:
+                            number: 80
