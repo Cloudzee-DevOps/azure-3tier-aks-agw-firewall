@@ -1,0 +1,24 @@
+---
+- name: Verify site over DNS from control machine
+hosts: local
+vars_files:
+    - ../group_vars/all.yml
+tasks:
+    - name: Resolve host
+    ansible.builtin.command: nslookup {{ host }}
+    register: ns
+    changed_when: false
+    
+    
+    - debug: var=ns.stdout_lines
+    
+    
+    - name: HTTP check
+    ansible.builtin.uri:
+        url: "http://{{ host }}"
+        return_content: true
+    register: page
+    
+    
+    - debug:
+        msg: "Got {{ page.status }} and {{ page.content | truncate(120) }}"
