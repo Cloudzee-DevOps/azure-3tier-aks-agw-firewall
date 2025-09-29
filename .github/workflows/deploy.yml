@@ -1,0 +1,66 @@
+name: Deploy 3-Tier Azure
+on:
+  workflow_dispatch:
+#     push:
+#         branches: [ main ]
+
+
+permissions:
+  id-token: write
+  contents: read
+
+
+jobs:
+    deploy:
+      runs-on: ubuntu-latest
+      env:
+          ARM_USE_OIDC: true
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+
+      steps:
+          - uses: actions/checkout@v4
+
+          
+          - name: Azure login (OIDC)
+            uses: azure/login@v2
+            with:
+              client-id: ${{ secrets.AZURE_CLIENT_ID }}
+              tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+              subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          
+          
+          - name: Setup Terraform
+            uses: hashicorp/setup-terraform@v3
+            with:
+              terraform_version: 1.7.5
+          
+          
+          - name: Terraform Init/Plan/Apply
+            working-directory: ./terraform
+            run: |
+              terraform init -upgrade
+              terraform fmt -check
+              terraform validate
+              terraform plan -out tfplan \
+              -var subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }} \
+              -var tenant_id=${{ secrets.AZURE_TENANT_ID }} \
+              -var dns_host=${{ vars.DNS_HOST }}
+              terraform apply -auto-approve tfplan
+          
+          
+          - name: Install Ansible
+            run: |
+              python3 -m pip install --upgrade pip
+              pip install ansible kubernetes
+              ansible-galaxy collection install -r ansible/requirements.yml
+          
+          
+          - name: Deploy App via Ansible
+            working-directory: ./ansible/playbooks
+            env:
+            DNS_HOST: ${{ vars.DNS_HOST }}
+            run: |
+              ansible-playbook -i ../inventory.ini deploy_app.yml
